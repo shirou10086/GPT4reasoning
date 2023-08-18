@@ -2,7 +2,7 @@
 
 ## Introduction
 
-The `text-image-alignment` project aims to bridge the gap between textual descriptions and visual content. By leveraging the capabilities of the CLIP model, we've distilled its essence into a smaller model trained on approximately 350 images. This allows for efficient and accurate alignment between text and images, offering two primary functionalities:
+The `text-image-align` project aims to bridge the gap between textual descriptions and visual content. By leveraging the capabilities of the CLIP model, we've distilled its essence into a smaller model trained on approximately 350 images. This allows for efficient and accurate alignment between text and images, offering two primary functionalities:
 1. Input a textual description and retrieve the most closely aligned image.
 2. Input an image storage location and receive a language description that best describes the image.
 
