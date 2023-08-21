@@ -2,23 +2,20 @@ import os
 import torch
 from PIL import Image
 import clip
-
+import gatherfeature
+import matplotlib.pyplot as plt
+import numpy as np
 device = "cuda" if torch.cuda.is_available() else "cpu"
 model, _ = clip.load("ViT-B/32", device=device)
 
-def get_text_features(text):
-    text = clip.tokenize([text]).to(device)
-    text_features = model.encode_text(text)
-    return text_features
-
 def find_best_match_image(text, features_folder, dataset_folder):
-    text_features = get_text_features(text)
+    text_features = gatherfeature.get_text_features(text)
     best_similarity = -float('inf')
     best_image_path = None
 
     for subdir, _, files in os.walk(features_folder):
         for feature_file in files:
-            if feature_file.endswith('.pt'):
+            if feature_file.endswith('.png.pt'):
                 features = torch.load(os.path.join(subdir, feature_file))
                 similarity = (text_features * features).sum(dim=-1)
                 if similarity > best_similarity:
@@ -28,16 +25,88 @@ def find_best_match_image(text, features_folder, dataset_folder):
 
     return best_image_path
 
-def display_image(image_path):
-    with Image.open(image_path) as img:
-        img.show()
-features_folder = "./features"
-dataset_folder = "./dataset"
-while True:
-    text_input = input("Enter text to find most matching image (or type 'exit' to exit): ")
-    if text_input.lower() == 'exit':
-        break
+def find_best_match_description(image_path, features_folder, dataset_folder):
+    image_features = gatherfeature.get_image_features(image_path)
+    best_similarity = -float('inf')
+    best_text_path = None
 
-    best_match = find_best_match_image(text_input, features_folder, dataset_folder)
-    print(f"Best match for '{text_input}' is: {best_match}")
-    display_image(best_match)
+    for subdir, _, files in os.walk(features_folder):
+        for feature_file in files:
+            if feature_file.endswith('.txt.pt'):
+                features = torch.load(os.path.join(subdir, feature_file))
+                similarity = (image_features * features).sum(dim=-1)
+                if similarity > best_similarity:
+                    best_similarity = similarity
+                    relative_path = os.path.relpath(subdir, features_folder)
+                    best_text_path = os.path.join(dataset_folder, relative_path, feature_file.replace('.pt', ''))
+                    with open(best_text_path, 'r') as f:
+                        best_content = f.read().strip()
+
+    return best_content
+
+def compare_image_descriptions(image_path1, image_path2, features_folder, dataset_folder):
+    description1 = find_best_match_description(image_path1, features_folder, dataset_folder)
+    description2 = find_best_match_description(image_path2, features_folder, dataset_folder)
+
+    features1 = gatherfeature.get_text_features(description1)
+    features2 = gatherfeature.get_text_features(description2)
+
+    similarity = torch.nn.functional.cosine_similarity(features1, features2)
+
+    return similarity.item()
+
+def compute_iou(similarities, threshold):
+    return sum([1 for s in similarities if s > threshold]) / len(similarities)
+
+def visual_iou(similarities):
+    thresholds = np.linspace(0, 1, 100)
+    ious = [compute_iou(similarities, t) for t in thresholds]
+    auc = np.trapz(ious, thresholds)
+
+    plt.xlim(0, 1)
+    plt.ylim(0, 1)
+    plt.grid(True)
+    plt.title('IOU vs Threshold')
+    plt.xlabel('Threshold')
+    plt.ylabel('IOU')
+    plt.plot(thresholds, ious, '-o', color='red', linewidth=2, label='IOU')
+    plt.fill_between(thresholds, ious, color='blue', alpha=0.1)
+    plt.text(0.5, 0.5, 'AUC = %0.2f' % auc)
+    plot_name = "IOU_vs_Threshold.png"
+    file_path = os.path.join('vis', plot_name)
+    if not os.path.exists('vis'):
+        os.mkdir('vis')
+    plt.savefig(file_path)
+    plt.close()
+
+if __name__ == "__main__":
+    features_folder = "./features"
+    dataset_folder = "./dataset"
+
+    mode = input("Choose your request: (1: image to description, 2: description to image, 3: images matching): ")
+    if mode == "1":
+        image_input = input("input image location: ")
+        if os.path.exists(image_input):
+            best_match = find_best_match_description(image_input, features_folder, dataset_folder)
+            print(f" '{image_input}' most matching description is: {best_match}")
+        else:
+            print("no image found here")
+    elif mode == "2":
+        text_input = input("input description: ")
+        best_match = find_best_match_image(text_input, features_folder, dataset_folder)
+        print(f" '{text_input}' most matching image is: {best_match}")
+    elif mode == "3":
+        num_pairs = int(input("How many image pairs do you want to compare? "))
+        similarities = []
+        for _ in range(num_pairs):
+            image_input1 = input("Input the first image location: ")
+            image_input2 = input("Input the second image location: ")
+            if os.path.exists(image_input1) and os.path.exists(image_input2):
+                similarity = compare_image_descriptions(image_input1, image_input2, features_folder, dataset_folder)
+                similarities.append(similarity)
+                print(f"The similarity between '{image_input1}' and '{image_input2}' is: {similarity}")
+            else:
+                print("One or both image locations are invalid.")
+        visual_iou(similarities)
+    else:
+        print("Error in request choosing")
