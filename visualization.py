@@ -5,7 +5,7 @@ import clip
 import gatherfeature
 import matplotlib.pyplot as plt
 import numpy as np
-
+#label需要改一下
 device = "cuda" if torch.cuda.is_available() else "cpu"
 model, _ = clip.load("ViT-B/32", device=device)
 
@@ -39,12 +39,29 @@ def compare_image_descriptions(image_path1, image_path2, features_folder, datase
 
     return similarity.item()
 
-def compute_iou(similarities, threshold):
-    return sum([1 for s in similarities if s > threshold]) / len(similarities)
+labels=[]
+def compute_iou_for_threshold(similarities, labels, threshold):
+    true_positives = 0
+    false_positives = 0
+    false_negatives = 0
+
+    for i in range(len(similarities)):
+        prediction = 1 if similarities[i] > threshold else 0
+        true_label = labels[i]
+
+        if prediction == 1 and true_label == 1:
+            true_positives += 1
+        elif prediction == 1 and true_label == 0:
+            false_positives += 1
+        elif prediction == 0 and true_label == 1:
+            false_negatives += 1
+
+    iou = true_positives / (true_positives + false_positives + false_negatives)
+    return iou
 
 def visual_iou(similarities):
     thresholds = np.linspace(0, 1, 100)
-    ious = [compute_iou(similarities, t) for t in thresholds]
+    ious = [compute_iou_for_threshold(similarities, labels, t) for t in thresholds]
     auc = np.trapz(ious, thresholds)
 
     plt.xlim(0, 1)
@@ -90,4 +107,4 @@ if __name__ == "__main__":
     features_folder = "./features"
 
     similarities = compute_all_similarities(dataset_folder, features_folder)
-    visual_iou(similarities)
+    visual_iou(similarities, labels)
