@@ -1,13 +1,26 @@
 import os
 import torch
+import csv
 from PIL import Image
 import clip
 import gatherfeature
 import matplotlib.pyplot as plt
 import numpy as np
-#label需要改一下
+
 device = "cuda" if torch.cuda.is_available() else "cpu"
 model, _ = clip.load("ViT-B/32", device=device)
+
+def generate_and_save_features(image_folder, features_folder):
+    if not os.path.exists(features_folder):
+        os.mkdir(features_folder)
+
+    for root, _, files in os.walk(image_folder):
+        for file in files:
+            if file.endswith('.png'):
+                image_path = os.path.join(root, file)
+                image_features = gatherfeature.get_image_features(image_path)
+                feature_path = os.path.join(features_folder, file + '.pt')
+                torch.save(image_features, feature_path)
 
 def find_best_match_description(image_path, features_folder, dataset_folder):
     image_features = gatherfeature.get_image_features(image_path)
@@ -39,7 +52,24 @@ def compare_image_descriptions(image_path1, image_path2, features_folder, datase
 
     return similarity.item()
 
-labels=[]
+def compute_all_similarities_and_labels(dataset_folder, features_folder, csv_path):
+    image_paths = get_all_image_paths(dataset_folder)
+    similarities = []
+    labels = []
+
+    with open(csv_path, 'r') as csvfile:
+        reader = csv.reader(csvfile)
+        label_dict = {(row[0], row[1]): int(row[2]) for row in reader}
+
+    for i in range(len(image_paths)):
+        for j in range(i+1, len(image_paths)):
+            similarity = compare_image_descriptions(image_paths[i], image_paths[j], features_folder, dataset_folder)
+            similarities.append(similarity)
+            labels.append(label_dict.get((os.path.basename(image_paths[i]), os.path.basename(image_paths[j])), 0))
+            print(f"Comparing '{image_paths[i]}' with '{image_paths[j]}'. Similarity: {similarity}")
+
+    return similarities, labels
+
 def compute_iou_for_threshold(similarities, labels, threshold):
     true_positives = 0
     false_positives = 0
@@ -59,7 +89,7 @@ def compute_iou_for_threshold(similarities, labels, threshold):
     iou = true_positives / (true_positives + false_positives + false_negatives)
     return iou
 
-def visual_iou(similarities):
+def visual_iou(similarities, labels):
     thresholds = np.linspace(0, 1, 100)
     ious = [compute_iou_for_threshold(similarities, labels, t) for t in thresholds]
     auc = np.trapz(ious, thresholds)
@@ -82,29 +112,20 @@ def visual_iou(similarities):
 
 def get_all_image_paths(dataset_folder):
     image_paths = []
-    adrian_folder = os.path.join('./testing')
-    for root, _, files in os.walk(adrian_folder):
+    for root, _, files in os.walk(dataset_folder):
         for file in files:
             if file.endswith('.png'):
                 image_paths.append(os.path.join(root, file))
     return image_paths
 
-
-def compute_all_similarities(dataset_folder, features_folder):
-    image_paths = get_all_image_paths(dataset_folder)
-    similarities = []
-
-    for i in range(len(image_paths)):
-        for j in range(i+1, len(image_paths)):  # 避免重复对和自身对
-            similarity = compare_image_descriptions(image_paths[i], image_paths[j], features_folder, dataset_folder)
-            similarities.append(similarity)
-            print(f"Comparing '{image_paths[i]}' with '{image_paths[j]}'. Similarity: {similarity}")
-
-    return similarities
-
 if __name__ == "__main__":
-    dataset_folder = "./dataset"
-    features_folder = "./features"
+    dataset_folder = "./testing"
+    features_folder = "./testing_features"
+    csv_path = './testing/testing_csv.csv'
 
-    similarities = compute_all_similarities(dataset_folder, features_folder)
+    # Generate and save features for images in the testing folder
+    generate_and_save_features(dataset_folder, features_folder)
+
+    # Compute similarities and visualize IOU
+    similarities, labels = compute_all_similarities_and_labels(dataset_folder, features_folder, csv_path)
     visual_iou(similarities, labels)
