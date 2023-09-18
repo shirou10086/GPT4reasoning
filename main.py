@@ -5,6 +5,8 @@ import clip
 import gatherfeature
 import matplotlib.pyplot as plt
 import numpy as np
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 device = "cuda" if torch.cuda.is_available() else "cpu"
 model, _ = clip.load("ViT-B/32", device=device)
 
@@ -24,7 +26,7 @@ def find_best_match_image(text, features_folder, dataset_folder):
                     best_image_path = os.path.join(dataset_folder, relative_path, feature_file.replace('.pt', ''))
 
     return best_image_path
-
+'''
 def find_best_match_description(image_path, features_folder, dataset_folder):
     image_features = gatherfeature.get_image_features(image_path)
     best_similarity = -float('inf')
@@ -54,7 +56,46 @@ def compare_image_descriptions(image_path1, image_path2, features_folder, datase
     similarity = torch.nn.functional.cosine_similarity(features1, features2)
 
     return similarity.item()
+'''
+def find_best_match_description(image_path, dataset_folder):
+    image_features = gatherfeature.get_image_features(image_path)
+    best_similarity = -float('inf')
+    best_text_content = None
 
+    for subdir, _, files in os.walk(dataset_folder):
+        for text_file in files:
+            if text_file.endswith('.txt'):
+                text_path = os.path.join(subdir, text_file)
+                with open(text_path, 'r') as f:
+                    text_content = f.read().strip()
+                if text_content == best_text_content:
+                    continue
+                similarity = compute_text_similarity(best_text_content, text_content)
+                if similarity > best_similarity:
+                    best_similarity = similarity
+                    best_text_content = text_content
+
+    return best_text_content
+
+def compute_text_similarity(text1, text2):
+    vectorizer = TfidfVectorizer().fit_transform([text1, text2])
+    vectors = vectorizer.toarray()
+    cos_sim = cosine_similarity(vectors[0].reshape(1, -1), vectors[1].reshape(1, -1))[0][0]
+    return cos_sim
+
+def find_description(image_path):
+    text_path = os.path.splitext(image_path)[0] + '.txt'
+
+    with open(text_path, 'r') as f:
+        description = f.read().strip()
+
+    return description
+
+def compare_image_descriptions(image_path1, image_path2):
+    description1 = find_description(image_path1)
+    description2 = find_description(image_path2)
+    similarity = compute_text_similarity(description1, description2)
+    return similarity
 def compute_iou(similarities, threshold):
     return sum([1 for s in similarities if s > threshold]) / len(similarities)
 
@@ -99,10 +140,10 @@ if __name__ == "__main__":
         num_pairs = int(input("How many image pairs do you want to compare? "))
         similarities = []
         for _ in range(num_pairs):
-            image_input1 = input("Input the first image location: ")
-            image_input2 = input("Input the second image location: ")
+            image_input1 = input("First location: ")
+            image_input2 = input("Second location: ")
             if os.path.exists(image_input1) and os.path.exists(image_input2):
-                similarity = compare_image_descriptions(image_input1, image_input2, features_folder, dataset_folder)
+                similarity = compare_image_descriptions(image_input1, image_input2)
                 similarities.append(similarity)
                 print(f"The similarity between '{image_input1}' and '{image_input2}' is: {similarity}")
             else:

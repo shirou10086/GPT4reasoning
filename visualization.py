@@ -1,11 +1,12 @@
 import os
 import torch
-import csv
 from PIL import Image
 import clip
 import gatherfeature
 import matplotlib.pyplot as plt
 import numpy as np
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 model, _ = clip.load("ViT-B/32", device=device)
@@ -21,7 +22,7 @@ def generate_and_save_features(image_folder, features_folder):
                 image_features = gatherfeature.get_image_features(image_path)
                 feature_path = os.path.join(features_folder, file + '.pt')
                 torch.save(image_features, feature_path)
-
+'''
 def find_best_match_description(image_path, features_folder, dataset_folder):
     image_features = gatherfeature.get_image_features(image_path)
     best_similarity = -float('inf')
@@ -51,6 +52,38 @@ def compare_image_descriptions(image_path1, image_path2, features_folder, datase
     similarity = torch.nn.functional.cosine_similarity(features1, features2)
 
     return similarity.item()
+'''
+def find_best_match_description(image_path, dataset_folder):
+    image_features = gatherfeature.get_image_features(image_path)
+    best_similarity = -float('inf')
+    best_text_content = None
+
+    for subdir, _, files in os.walk(dataset_folder):
+        for text_file in files:
+            if text_file.endswith('.txt'):
+                text_path = os.path.join(subdir, text_file)
+                with open(text_path, 'r') as f:
+                    text_content = f.read().strip()
+                if text_content == best_text_content:
+                    continue
+                similarity = compute_text_similarity(best_text_content, text_content)
+                if similarity > best_similarity:
+                    best_similarity = similarity
+                    best_text_content = text_content
+
+    return best_text_content
+
+def compute_text_similarity(text1, text2):
+    vectorizer = TfidfVectorizer().fit_transform([text1, text2])
+    vectors = vectorizer.toarray()
+    cos_sim = cosine_similarity(vectors[0].reshape(1, -1), vectors[1].reshape(1, -1))[0][0]
+    return cos_sim
+
+def compare_image_descriptions(image_path1, image_path2, dataset_folder):
+    description1 = find_best_match_description(image_path1, dataset_folder)
+    description2 = find_best_match_description(image_path2, dataset_folder)
+    similarity = compute_text_similarity(description1, description2)
+    return similarity
 
 def compute_all_similarities_and_labels(dataset_folder, features_folder, csv_path):
     image_paths = get_all_image_paths(dataset_folder)
@@ -63,7 +96,7 @@ def compute_all_similarities_and_labels(dataset_folder, features_folder, csv_pat
 
     for i in range(len(image_paths)):
         for j in range(i+1, len(image_paths)):
-            similarity = compare_image_descriptions(image_paths[i], image_paths[j], features_folder, dataset_folder)
+            similarity = compare_image_descriptions(image_paths[i], image_paths[j], dataset_folder)
             similarities.append(similarity)
             labels.append(label_dict.get((os.path.basename(image_paths[i]), os.path.basename(image_paths[j])), 0))
             print(f"Comparing '{image_paths[i]}' with '{image_paths[j]}'. Similarity: {similarity}")
