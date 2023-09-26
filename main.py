@@ -90,7 +90,7 @@ def find_description(image_path):
         description = f.read().strip()
 
     return description
-
+#warning
 def compare_image_descriptions(image_path1, image_path2):
     description1 = find_description(image_path1)
     description2 = find_description(image_path2)
