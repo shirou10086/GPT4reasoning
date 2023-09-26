@@ -82,6 +82,11 @@ def compute_text_similarity(text1, text2):
     vectors = vectorizer.toarray()
     cos_sim = cosine_similarity(vectors[0].reshape(1, -1), vectors[1].reshape(1, -1))[0][0]
     return cos_sim
+def compute_integrated_similarity(model, image1, text1, image2, text2):
+    integrated_feature1 = model(image1, text1)
+    integrated_feature2 = model(image2, text2)
+    cos_sim = nn.CosineSimilarity(dim=-1)(integrated_feature1, integrated_feature2)
+    return cos_sim.item()
 
 def find_description(image_path):
     text_path = os.path.splitext(image_path)[0] + '.txt'
