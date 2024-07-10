@@ -2,7 +2,8 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import os
-directory_string = 'NoBackYesExManually'
+#This is overall auc image generation, change directory_string and directory_to_search to calculate, make sure you have the scores and GroundTruth
+directory_string = 'Seed5'
 
 directory_to_search = f'./{directory_string}/'
 
@@ -56,12 +57,12 @@ for threshold in thresholds:
 auc = np.trapz(ious_list, thresholds)
 
 def visual_iou(thresholds, ious_list, auc):
-    vis_dir = f'./{directory_string}'   # 修改保存目录到 "./NoExYesBackLabeled2/vis"
+    vis_dir = f'./{directory_string}'   # change saving directory to "./NoExYesBackLabeled2/vis"
 
     plt.figure()
     plt.grid(True)
-    plt.xlim(0, 1)  # 设置横坐标的范围
-    plt.ylim(0, 1)  # 设置纵坐标的范围
+    plt.xlim(0, 1)  # set x
+    plt.ylim(0, 1)  # set y
     plt.plot(thresholds, ious_list, '-o', color='red', linewidth=2, label='IOU')
     plt.fill_between(thresholds, ious_list, color='blue', alpha=0.1)
     # plt.title('IOU vs Threshold', fontsize=24)  # If you want to keep the title, uncomment this line
@@ -74,7 +75,7 @@ def visual_iou(thresholds, ious_list, auc):
         os.makedirs(vis_dir)
     plt.savefig(os.path.join(vis_dir, plot_name))
     plt.show()
-
+print("IOU List:", ious_list)
 visual_iou(thresholds, ious_list, auc)
 print(f"Area Under Curve (AUC): {auc:.4f}")
 print(f"Intersection over Union (IOU): {iou:.4f}")

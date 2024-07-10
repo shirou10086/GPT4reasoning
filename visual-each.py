@@ -2,23 +2,23 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import os
-
+#This is a file generate auc image for each scenes under a root folder, in the use case it is Manaually folder
 def compute_and_visualize_iou_for_floor(floor_directory):
-    # 初始化空的DataFrame
+    # Init empty DataFrame
     scores_df_list = []
     groundtruth_df_list = []
 
-    # 遍历楼层的所有子目录
+    # loop all subdir
     for subdir in os.listdir(floor_directory):
         subdir_path = os.path.join(floor_directory, subdir, 'saved_obs')
         if os.path.exists(subdir_path):
-            # 读取和合并scores.csv和GroundTruth.csv
+            # merge scores.csv & GroundTruth.csv
             scores_df = pd.read_csv(os.path.join(subdir_path, 'scores.csv'))
             groundtruth_df = pd.read_csv(os.path.join(subdir_path, 'GroundTruth.csv'))
             scores_df_list.append(scores_df)
             groundtruth_df_list.append(groundtruth_df)
 
-    # 合并所有DataFrame
+    # merge all DataFrame
     all_scores_df = pd.concat(scores_df_list)
     all_groundtruth_df = pd.concat(groundtruth_df_list)
 
@@ -86,9 +86,8 @@ def visual_iou(thresholds, ious_list, auc, directory_string):
 
 
 # Start from the base directory and process each scene
-base_directory = './YesBackYesExManually/'
+base_directory = './Manually/'
 floors = [os.path.join(base_directory, d) for d in os.listdir(base_directory) if os.path.isdir(os.path.join(base_directory, d))]
 
 for floor_directory in floors:
-    if "Ballou" not in floor_directory:
-        compute_and_visualize_iou_for_floor(floor_directory)
+    compute_and_visualize_iou_for_floor(floor_directory)
