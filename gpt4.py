@@ -159,6 +159,7 @@ def generate_scores_for_subdir(subdir_path):
 
     return scores
 
+#you wanted to change the seeds list to match with your dataset
 seeds = [ 'seed3', 'seed4', 'seed5']
 seed3_folders = ['Cantwell', 'Capistrano', 'Colebrook', 'Convoy', 'Cooperstown', 'Crandon', 'Delton', 'Denmark', 'Dryville', 'Dunmor', 'Eagerville', 'Eastville', 'Edgemere', 'Elmira', 'Eudora', 'Goffs']
 
